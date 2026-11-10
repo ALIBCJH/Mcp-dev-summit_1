@@ -1,0 +1,10 @@
+[
+  {"flight": "KF101", "origin": "NBO", "destination": "UKA", "price_kes": 15500, "status": "on time"},
+  {"flight": "NY205", "origin": "NBO", "destination": "UKA", "price_kes": 12800, "status": "delayed"},
+  {"flight": "KF310", "origin": "NBO", "destination": "LAU", "price_kes": 18900, "status": "on time"},
+  {"flight": "NY220", "origin": "NBO", "destination": "MYD", "price_kes": 14200, "status": "on time"},
+  {"flight": "KF410", "origin": "NBO", "destination": "NYK", "price_kes": 9800,  "status": "on time"},
+  {"flight": "NY415", "origin": "NBO", "destination": "NYK", "price_kes": 8900,  "status": "cancelled"},
+  {"flight": "KF520", "origin": "NBO", "destination": "KIS", "price_kes": 11500, "status": "on time"},
+  {"flight": "KF610", "origin": "NBO", "destination": "MRE", "price_kes": 22000, "status": "on time"}
+]

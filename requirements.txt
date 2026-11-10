@@ -1,0 +1,5 @@
+mcp==2.3.0
+fastapi==0.162.2
+uvicorn==0.54.0
+anthropic==2.6.0
+python-dotenv==1.2.4

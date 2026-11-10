@@ -1,0 +1,16 @@
+[
+  {
+    "name": "flights",
+    "command": "python",
+    "args": ["servers/flights_server.py"]
+  },
+  {
+    "name": "hotels",
+    "command": "python",
+    "args": ["servers/hotels_server.py"]
+  },
+  {
+    "name": "bookings",
+    "url": "http://127.0.0.1:9000/mcp"
+  }
+]
