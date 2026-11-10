@@ -1,0 +1,126 @@
+/* Colour tokens. The lesson diagram colours (purple #7F77DD, teal #1D9E75)
+   are used exactly on borders and badges. Row text uses darker shades in the
+   light theme because the exact colours fall below 4.5:1 on white. */
+:root {
+  --bg: #FFFFFF;
+  --panel-bg: #F6F7F9;
+  --text: #1A1A1A;
+  --muted: #596273;
+  --border: #D5DAE1;
+  --api: #7F77DD;        --api-text: #4F47B8;     /* Claude API events */
+  --mcp: #1D9E75;        --mcp-text: #15775A;     /* MCP events */
+  --denied: #B42318;     --denied-text: #B42318;  /* policy denied, errors */
+  --neutral: #596273;    --neutral-text: #596273; /* policy allowed */
+  --banner-bg: #FFD600;  --banner-text: #1A1A1A;
+  --user-bubble: #E9E7FB;
+  --font-size: 18px;
+  --mono-size: 15px;
+}
+:root[data-theme="dark"] {
+  --bg: #121417;
+  --panel-bg: #1A1D22;
+  --text: #ECEFF3;
+  --muted: #AEB7C2;
+  --border: #343941;
+  --api-text: #A9A3F0;
+  --mcp-text: #4FC79E;
+  --denied-text: #FF8A80;
+  --neutral-text: #AEB7C2;
+  --user-bubble: #2A2A4A;
+}
+
+* { box-sizing: border-box; }
+html { font-size: var(--font-size); }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.topbar {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 0.5rem 1rem; border-bottom: 2px solid var(--border);
+}
+.topbar h1 { font-size: 1.1rem; margin: 0; }
+.muted { color: var(--muted); }
+.badge {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.4rem;
+  color: #fff; font-weight: 600; font-size: 0.85rem;
+}
+.badge.neutral { background: var(--neutral); }
+.badge.denied { background: var(--denied); }
+.badge.api { background: var(--api); }
+.badge.mcp { background: var(--mcp); }
+#theme-toggle { margin-left: auto; }
+button, input[type="text"] { font: inherit; }
+button {
+  padding: 0.3rem 0.8rem; border: 2px solid var(--border); border-radius: 0.4rem;
+  background: var(--panel-bg); color: var(--text); cursor: pointer;
+}
+button:hover { border-color: var(--api); }
+
+/* Two columns: chat 40%, panel 60%. Both scroll independently. */
+.columns { display: grid; grid-template-columns: 40% 60%; flex: 1; min-height: 0; }
+.chat, .bonnet { display: flex; flex-direction: column; min-height: 0; }
+.chat { border-right: 2px solid var(--border); }
+.chat-log { flex: 1; overflow-y: auto; padding: 1rem; }
+.msg { margin: 0 0 0.9rem; white-space: pre-wrap; line-height: 1.4; }
+.msg.you { background: var(--user-bubble); padding: 0.5rem 0.7rem; border-radius: 0.5rem; }
+.msg.note { color: var(--muted); font-style: italic; }
+.msg.error { color: var(--denied-text); font-weight: 600; }
+.msg .who { font-weight: 700; margin-right: 0.4rem; }
+.chat-controls { border-top: 2px solid var(--border); padding: 0.6rem 1rem; }
+.quick { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+#chat-form { display: flex; gap: 0.5rem; }
+#chat-input { flex: 1; padding: 0.4rem 0.6rem; border: 2px solid var(--border); border-radius: 0.4rem; background: var(--bg); color: var(--text); }
+
+.panel-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; padding: 0.5rem 1rem; border-bottom: 2px solid var(--border); }
+.fooled-label { font-weight: 600; }
+.panel { flex: 1; overflow-y: auto; padding: 0.8rem 1rem; background: var(--panel-bg); }
+.section-title { font-weight: 700; letter-spacing: 0.05em; margin: 0.4rem 0; }
+#startup-title { cursor: pointer; }
+.startup.collapsed #startup-lines { display: none; }
+.startup.collapsed #startup-title::after { content: "  (click to expand)"; font-weight: 400; color: var(--muted); }
+
+/* Rows: a left border in the family colour, a label badge, then the text. */
+.row { border-left: 6px solid var(--border); margin: 0.35rem 0; padding: 0.25rem 0.6rem; background: var(--bg); border-radius: 0 0.3rem 0.3rem 0; }
+.row.api { border-left-color: var(--api); }
+.row.mcp { border-left-color: var(--mcp); }
+.row.denied { border-left-color: var(--denied); }
+.row.neutral { border-left-color: var(--neutral); }
+.row.api .label { color: var(--api-text); }
+.row.mcp .label { color: var(--mcp-text); }
+.row.denied .label, .row.denied .head { color: var(--denied-text); }
+.row.neutral .label { color: var(--neutral-text); }
+.row .label { font-weight: 700; margin-right: 0.5rem; }
+.row summary { cursor: pointer; line-height: 1.4; }
+.row summary::marker { color: var(--muted); }
+.row .head { display: inline; }
+.row .body { margin: 0.4rem 0 0.2rem 0.5rem; }
+.row .sub { font-weight: 600; margin: 0.4rem 0 0.1rem; color: var(--muted); }
+.thinking { color: var(--muted); font-style: italic; white-space: pre-wrap; }
+.wire-row { margin-left: 1rem; }
+pre.json, pre.text {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--mono-size);
+  white-space: pre-wrap; word-break: break-word; margin: 0.2rem 0; padding: 0.4rem 0.6rem;
+  background: var(--panel-bg); border: 1px solid var(--border); border-radius: 0.3rem; max-height: 60vh; overflow: auto;
+}
+.showmore { font: inherit; font-size: 0.85rem; padding: 0.1rem 0.5rem; margin-top: 0.2rem; }
+
+.turn { margin: 1rem 0; padding: 0.4rem 0.6rem; border: 2px solid var(--border); border-radius: 0.4rem; background: var(--panel-bg); }
+.turn-title { font-weight: 700; margin-bottom: 0.3rem; }
+.turn-title .q { font-weight: 400; color: var(--muted); }
+
+/* The simulated-LLM notice: full width, high contrast, large, stays in the turn. */
+.banner {
+  display: block; width: 100%; margin: 0.6rem 0; padding: 0.7rem 0.9rem;
+  background: var(--banner-bg); color: var(--banner-text); border: 4px solid var(--denied);
+  font-size: 1.25rem; font-weight: 800; line-height: 1.3;
+}
+.banner small { display: block; font-weight: 500; font-size: 0.9rem; margin-top: 0.3rem; }
+
+/* Narrow or very zoomed: stack the columns instead of breaking them. */
+@media (max-width: 1000px) {
+  body { overflow: auto; height: auto; }
+  .columns { grid-template-columns: 1fr; }
+  .chat { border-right: 0; border-bottom: 2px solid var(--border); max-height: 50vh; }
+}

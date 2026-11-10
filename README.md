@@ -99,6 +99,45 @@ The scripted tests need no API key, but test (e) launches the real flights
 server over stdio, so they are key-free, not server-free. The wire tap check
 books a trip on the running bookings server and cancels it again afterwards.
 
+## Web chat and bonnet panel (Phase 4)
+
+```bash
+./start_demo.sh              # bookings server, then the web app; Ctrl-C stops both
+# or, in two terminals: python servers/bookings_server.py / python web/app.py
+```
+
+Open http://127.0.0.1:8000/ (bound to 127.0.0.1 only). Chat on the left,
+the bonnet on the right: the five startup lines (paced, replayable, or
+stepped with Space / Right arrow), then per turn every model call with its
+full request, every tool request, policy decision, raw JSON-RPC message,
+tool result, thinking summary and final answer. Purple is the Claude API,
+teal is MCP, red is a denial or an error. Buttons send the standard Diani
+request, a status check for the cancelled flight NY415, and the plan-trip
+prompt. Reset clears the conversation and the turn events, keeps the
+startup events, and switches the fooled-LLM simulation off.
+
+"Simulate fooled LLM" (server-side toggle): once per turn, after the model
+has received hotel results that carry the poisoned review, the next reply
+is replaced by a synthetic tool request for exactly what the review asks
+(`host/fooled_llm.py` reads it from the data files). A yellow banner marks
+the swap. The policy check, the tools/call to Bookings, its spending-limit
+error and the next Claude call are all real.
+
+Routes: `GET /api/state`, `GET /api/events?after=N` (Server-Sent Events,
+one `id` = sequence number per event, `Last-Event-ID` honoured), `POST
+/api/chat {"text"}` (409 while a turn runs, 60-second turn timeout), `POST
+/api/reset`, `POST /api/fooled {"on"}`. Strings shaped like an API key are
+redacted before they leave the server (`web/serialize.py`).
+
+Files: `web/app.py` (routes and all state), `web/event_log.py` (sequence
+numbers, subscribers), `web/serialize.py`, `web/static/` (plain HTML, CSS
+and JS, no build step), `host/commands.py` (`/attach` and `/plan-trip`,
+shared with the CLI), `host/fooled_llm.py`.
+
+```bash
+python host/web_tests.py     # no key; starts its own bookings server on a free port
+```
+
 ## Notes
 
 - `"command": "python"` in `servers.json` is resolved to the interpreter

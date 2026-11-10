@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from host import commands  # noqa: E402
 from host.agent import Conversation, run_turn  # noqa: E402
 from host.events import (  # noqa: E402
     ConfigLoaded,
@@ -125,30 +126,17 @@ async def main() -> None:
             if line == "/quit":
                 break
 
-            if line.startswith("/attach "):
-                uri = line.split(maxsplit=1)[1]
-                owner = next((r["server"] for r in host.resources if r["uri"] == uri), None)
-                if owner is None:
-                    print(f"  no server offers resource {uri}\n")
-                    continue
-                conv.attach(uri, await host.read_resource(owner, uri))
-                print(f"  attached {uri}; it will be sent with your next message\n")
+            try:
+                expanded = await commands.expand(line, conv, host)
+            except commands.UsageError as exc:
+                print(f"  {exc}\n")
                 continue
-
-            if line.startswith("/plan-trip "):
-                parts = line.split()[1:]
-                if len(parts) < 2 or not parts[-1].isdigit():
-                    print("  usage: /plan-trip <destination> <days>\n")
-                    continue
-                destination, days = " ".join(parts[:-1]), parts[-1]
-                owner = next((p["server"] for p in host.prompts if p["name"] == "plan-trip"), None)
-                if owner is None:
-                    print("  no server offers the plan-trip prompt\n")
-                    continue
-                rendered = await host.get_prompt(owner, "plan-trip", {"destination": destination, "days": days})
-                # The prompt server returns "user: <text>"; the text is what we send.
-                line = rendered.split(": ", 1)[1] if rendered.startswith("user: ") else rendered
-                print("  prompt plan-trip → sending:\n      " + line.replace("\n", "\n      "))
+            if expanded.kind == "attached":
+                print(f"  {expanded.note}\n")
+                continue
+            line = expanded.text
+            if expanded.note:
+                print(f"  {expanded.note} → sending:\n      " + line.replace("\n", "\n      "))
 
             history_len = len(conv.messages)
             try:

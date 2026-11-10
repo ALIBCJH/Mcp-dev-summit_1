@@ -83,6 +83,7 @@ async def run_turn(
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 elapsed_seconds=round(time.perf_counter() - started, 2),
+                response=_plain(response.content),
             )
         )
         # Append the whole content list, not just the text: thinking blocks

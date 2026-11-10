@@ -81,6 +81,9 @@ class ModelCalled:
     input_tokens: int
     output_tokens: int
     elapsed_seconds: float
+    # What the model sent back, as plain dicts: thinking, text and tool_use
+    # blocks. The panel shows thinking summaries from here.
+    response: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -112,6 +115,41 @@ class FinalAnswer:
     reason: str
 
 
+@dataclass
+class TurnStarted:
+    """Emitted by the web app when a traveller message starts a turn."""
+
+    text: str
+    # A note from command expansion, e.g. which prompt produced the text.
+    note: str = ""
+
+
+@dataclass
+class TurnFailed:
+    """The turn ended with an exception (API error, timeout). History was
+    rolled back; the panel shows a red row instead of a blank."""
+
+    error: str
+
+
+@dataclass
+class SimulatedReply:
+    """FooledLLM replaced the model's reply with a synthetic tool request.
+    tool is None when the simulation was armed but found no injection to
+    obey, so nothing was replaced."""
+
+    tool: str | None
+    args: dict[str, Any]
+    note: str
+
+
+@dataclass
+class Reset:
+    """The conversation and per-turn events were cleared; startup stays."""
+
+    fooled: bool
+
+
 # ---- wire --------------------------------------------------------------------
 
 
@@ -126,6 +164,8 @@ class WireMessage:
 
 
 StartupEvent = Union[ConfigLoaded, ServerConnected, Handshake, ToolsDiscovered, MenuBuilt]
-TurnEvent = Union[ModelCalled, ToolRequested, PolicyDecided, ToolReturned, FinalAnswer]
-Event = Union[StartupEvent, TurnEvent, WireMessage]
+TurnEvent = Union[
+    TurnStarted, ModelCalled, ToolRequested, PolicyDecided, ToolReturned, FinalAnswer, TurnFailed, SimulatedReply
+]
+Event = Union[StartupEvent, TurnEvent, WireMessage, Reset]
 OnEvent = Callable[[Event], None]

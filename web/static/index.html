@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kenya travel assistant</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>Kenya travel assistant</h1>
+  <span id="model-line" class="muted">connecting…</span>
+  <span id="fooled-state" class="badge neutral">fooled LLM: off</span>
+  <span id="conn-state" class="muted">●</span>
+  <button id="theme-toggle" type="button" title="Switch light/dark">Dark</button>
+</header>
+
+<main class="columns">
+  <section class="chat" aria-label="Chat">
+    <div id="chat-log" class="chat-log"></div>
+    <div class="chat-controls">
+      <div class="quick">
+        <button type="button" data-send="Find me a flight from Nairobi to Ukunda and a hotel in Diani Beach for 2 nights">Diani trip</button>
+        <button type="button" data-send="What is the status of flight NY415?">Flight status NY415</button>
+        <button type="button" data-send="/plan-trip Diani Beach 2">/plan-trip Diani Beach 2</button>
+      </div>
+      <form id="chat-form">
+        <input id="chat-input" type="text" autocomplete="off" placeholder="Type a message, /plan-trip <destination> <days>, or /attach <uri>">
+        <button id="send-btn" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="bonnet" aria-label="Bonnet panel">
+    <div class="panel-toolbar">
+      <button id="replay-btn" type="button">Replay startup</button>
+      <label><input id="step-mode" type="checkbox"> Step (Space / →)</label>
+      <button id="reset-btn" type="button">Reset</button>
+      <label class="fooled-label"><input id="fooled-toggle" type="checkbox"> Simulate fooled LLM</label>
+    </div>
+    <div id="panel" class="panel">
+      <section id="startup" class="startup">
+        <div class="section-title" id="startup-title">STARTUP</div>
+        <div id="startup-lines"></div>
+      </section>
+      <section id="turns"></section>
+    </div>
+  </section>
+</main>
+
+<script src="/static/format.js"></script>
+<script src="/static/panel.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
