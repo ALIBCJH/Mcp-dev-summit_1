@@ -16,6 +16,11 @@ for the event stream.
 (g) reload: a fresh subscriber rebuilds the same (seq, type) list
 (h) redaction of a key-shaped string; thinking blocks serialise
 (i) connect mid-turn: history then live, no gaps, no duplicates
+(k) a tool the policy denies, through the web app
+
+EVENTS_DUMP=<path> also writes every event the server ever emitted (as the
+page receives it) to a JSON file, after checking it holds nothing key-like.
+It is the fixture for the Node tests of the flow strip (web/js_tests.js).
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -74,6 +80,8 @@ class TestLLM(ScriptedLLM):
 
 
 LLM = TestLLM()
+ALL_ENTRIES: list = []
+KEY_LIKE = re.compile(r"sk-ant|sk-[A-Za-z0-9_\-]{12,}|gh[pous]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._\-]{16,}")
 
 
 def free_port() -> int:
@@ -113,6 +121,15 @@ def start_web(bookings_port: int) -> tuple[uvicorn.Server, threading.Thread, int
         ServerConfig(name="bookings", url=f"http://127.0.0.1:{bookings_port}/mcp"),
     ]
     app = create_app(lambda: LLM, configs)
+    # Record every entry ever appended (resets drop turn entries from the
+    # log itself), so EVENTS_DUMP can write the whole history.
+    log = app.state.demo.log
+    original_append = log.append
+    def recording_append(event):
+        entry = original_append(event)
+        ALL_ENTRIES.append(entry)
+        return entry
+    log.append = recording_append  # type: ignore[method-assign]
     port = free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
@@ -406,6 +423,33 @@ def test_i_mid_turn(port: int, app: Any) -> None:
     print(f"PASS (i) mid-turn connect: {len(history)} past events then {len(live)} live, no gaps, no duplicates")
 
 
+def test_k_denied(port: int) -> None:
+    _, state = get("/api/state")
+    LLM.responses[:] = [{"tool": "delete_everything", "args": {"really": True}},
+                        {"text": "I could not do that, but here is what I can do."}]
+    s = Stream(port, after=state["last_seq"])
+    status, body = post("/api/chat", {"text": "wipe it"})
+    events = s.read_until("FinalAnswer")
+    s.close()
+    assert status == 200 and body["answer"].startswith("I could not")
+    kinds = types_of(events)
+    assert kinds == ["TurnStarted", "ModelCalled", "ToolRequested", "PolicyDecided", "ModelCalled", "FinalAnswer"], kinds
+    denied = events[3]
+    assert denied["allowed"] is False and "not on the host's allow-list" in denied["reason"]
+    print("PASS (k) denied tool through the web app: PolicyDecided denied, no wire traffic, turn continued")
+
+
+def dump_events(path: str) -> None:
+    events = [to_dict(e) for e in ALL_ENTRIES]
+    text = json.dumps(events, indent=0, ensure_ascii=False)
+    hits = KEY_LIKE.findall(text)
+    assert not hits, f"refusing to write fixture: key-like strings found: {hits[:3]}"
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(text)
+    kinds = sorted({e["type"] for e in events})
+    print(f"wrote {len(events)} events ({len(text):,} bytes) to {path}; types: {', '.join(kinds)}; no key-like strings")
+
+
 def main() -> None:
     global BASE
     bookings, bport = start_bookings()
@@ -422,6 +466,7 @@ def main() -> None:
         test_g_reload(port, app)
         test_h_serialize()
         test_i_mid_turn(port, app)
+        test_k_denied(port)
         # The server notices a closed stream on its next write (an event or
         # the keepalive), so give it one keepalive period.
         started = time.perf_counter()
@@ -430,6 +475,8 @@ def main() -> None:
         assert app.state.demo.log.subscriber_count == 0, "every stream must unsubscribe on close"
         print(f"PASS (j) all subscribers released within {time.perf_counter() - started:.1f}s of closing")
         print("\nall web tests passed")
+        if os.environ.get("EVENTS_DUMP"):
+            dump_events(os.environ["EVENTS_DUMP"])
     finally:
         if server is not None:
             server.should_exit = True

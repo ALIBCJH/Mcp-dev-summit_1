@@ -149,7 +149,7 @@ def create_app(llm_factory: Callable[[], Any], configs: list[ServerConfig], syst
         yield
         await demo.stop()
 
-    app = FastAPI(title="Kenya travel assistant", lifespan=lifespan)
+    app = FastAPI(title="Safiri, a Kenya travel assistant", lifespan=lifespan)
     app.state.demo = demo
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 

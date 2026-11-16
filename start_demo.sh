@@ -24,11 +24,13 @@ trap cleanup INT TERM EXIT
 PORT="$BOOKINGS_PORT" "$PY" servers/bookings_server.py &
 BOOKINGS_PID=$!
 
-# Any HTTP response counts as up (no -f): the MCP endpoint answers a bare GET
-# with an error status, which is still a running server.
+# Any HTTP response counts as up (no -f). The Accept header matters: with
+# curl's default */* the MCP endpoint opens an event stream that never ends,
+# so the probe would hang. Asking for JSON gets an immediate 406, which is
+# still a running server. --max-time caps a probe at 2 seconds either way.
 echo -n "waiting for bookings on port $BOOKINGS_PORT "
 for _ in $(seq 1 40); do
-  if curl -s -o /dev/null "http://127.0.0.1:$BOOKINGS_PORT/mcp"; then
+  if curl -s -o /dev/null --max-time 2 -H "Accept: application/json" "http://127.0.0.1:$BOOKINGS_PORT/mcp"; then
     echo "up"
     break
   fi
@@ -38,7 +40,7 @@ for _ in $(seq 1 40); do
   echo -n "."
   sleep 0.5
 done
-if ! curl -s -o /dev/null "http://127.0.0.1:$BOOKINGS_PORT/mcp"; then
+if ! curl -s -o /dev/null --max-time 2 -H "Accept: application/json" "http://127.0.0.1:$BOOKINGS_PORT/mcp"; then
   echo; echo "bookings server did not answer within 20 seconds"; exit 1
 fi
 

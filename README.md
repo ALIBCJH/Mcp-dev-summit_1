@@ -1,6 +1,6 @@
 # Travel Assistant (MCP workshop demo)
 
-A Kenya travel assistant. Phase 3: three MCP servers behind one host, with
+Safiri ("travel" in Swahili), a Kenya travel assistant. Phase 3: three MCP servers behind one host, with
 Claude deciding which tools to call. No web app yet; that is Phase 4.
 
 Destinations (real places, invented hotels and airlines): Diani Beach (UKA),
@@ -108,7 +108,7 @@ books a trip on the running bookings server and cancels it again afterwards.
 
 Open http://127.0.0.1:8000/ (bound to 127.0.0.1 only). Chat on the left,
 the bonnet on the right: the five startup lines (paced, replayable, or
-stepped with Space / Right arrow), then per turn every model call with its
+stepped by key in Manual), then per turn every model call with its
 full request, every tool request, policy decision, raw JSON-RPC message,
 tool result, thinking summary and final answer. Purple is the Claude API,
 teal is MCP, red is a denial or an error. Buttons send the standard Diani
@@ -134,8 +134,58 @@ numbers, subscribers), `web/serialize.py`, `web/static/` (plain HTML, CSS
 and JS, no build step), `host/commands.py` (`/attach` and `/plan-trip`,
 shared with the CLI), `host/fooled_llm.py`.
 
+The flow strip pinned above the rows is an SVG drawn from one table
+(`web/static/flow_data.js`): Traveller, Claude, the Host box with Agent loop
+and Policy, the MCP band and the three servers with their tool names. It
+lights up one beat per event, with a one-sentence caption. The mapping from
+events to beats is a pure function in `web/static/flow_state.js`, so a
+reload rebuilds the same picture. Phase 5 adds its Confirm node and edge to
+the table only.
+
+The page calls its two halves the shell (the chat: what's your request) and the
+kernel (the panel: what really happens); each carries its label at the top.
+On page load an opening runs (`web/static/curtain.js`): "Welcome to Safiri"
+for 3.3 seconds, then both halves boot at once behind their own 3-second
+ring timer (3, 2, 1). The shell's card says what it is; the kernel's card
+says in three lines what it shows (Claude asks, the host checks, the
+servers answer). When the rings close, the chat shows and the startup
+replay launches. One presenter clock drives it (`web/static/timeline.js`):
+Space or a click pauses and resumes, so the presenter can talk; Enter or
+Esc skips; `?intro=0` on the URL skips it while developing.
+
+One pace drives the rows and the strip together, for live turns, "Replay
+turn" and "Replay startup" (`web/static/reveal.js`, pure, Node-tested):
+Instant, Fast 0.6 s, Narrate 1.5 s (the default), Slow 2.5 s or Manual (keys
+only; the Step box is an alias for Manual). The dwell applies only between
+steps: an event that arrives later than one dwell shows at once, and a model
+call in flight is never padded. There is no catch-up rule. A normal Diani
+turn is 14 beats and a fooled turn 21, so after the last event Narrate still
+has about 21 s and 32 s to show, Slow 35 s and 53 s; End shows everything
+at once. Keys, when the focus is not in the chat input: → Space PageDown
+next and ← PageUp back (Manual only), End shows all, Home restarts the turn,
+D hides the strip, A runs the autopilot, K shows the closing card, N shows
+the presenter notes. "Hold answer" (on by default) keeps the assistant's chat
+bubble until the "Claude answers the traveller" step in Narrate, Slow and
+Manual; in Instant and Fast it appears at once. Sending a new message
+flushes the previous turn. A reload shows the history at once. The pace is
+kept in localStorage and shown in the header; Reset does not change it.
+
+Presenter extras, all in the browser and all optional. The autopilot
+(button or A) runs the demo hands-free: the startup replay, then each quick
+prompt in turn, waiting for the answer to be shown, then the closing card;
+A again stops it after the current step, and it switches Manual to Narrate
+since Manual waits for keys. The closing card (Kwaheri, button or K) lists
+the four processes and the session's real totals; any key or click closes
+it. The scoreboard under each answer, in the chat and in the panel, sums
+the turn's real numbers from the events: Claude seconds and calls, tokens
+in and out, tool calls and errors, messages on the wire, blocked and fooled
+calls. The presenter notes (N) are a small box at the bottom left that
+follows the current beat; the text lives in web/static/notes.js.
+
 ```bash
 python host/web_tests.py     # no key; starts its own bookings server on a free port
+node web/js_tests.js         # the flow-strip reducer, reveal controller and chat markdown
+EVENTS_DUMP=web/fixtures/events_sample.json python host/web_tests.py   # refresh the fixture
 ```
 
 ## Notes

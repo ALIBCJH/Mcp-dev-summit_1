@@ -12,6 +12,12 @@
   --denied: #B42318;     --denied-text: #B42318;  /* policy denied, errors */
   --neutral: #596273;    --neutral-text: #596273; /* policy allowed */
   --banner-bg: #FFD600;  --banner-text: #1A1A1A;
+  --amber: #D97706;      --amber-text: #B45309;   /* simulated: Claude replaced */
+  --current-bg: #EEF0FB;                           /* the row being narrated */
+  --api-glow: rgba(127, 119, 221, 0.55);
+  --mcp-glow: rgba(29, 158, 117, 0.55);
+  --denied-glow: rgba(180, 35, 24, 0.5);
+  --neutral-glow: rgba(89, 98, 115, 0.45);
   --user-bubble: #E9E7FB;
   --font-size: 18px;
   --mono-size: 15px;
@@ -24,12 +30,15 @@
   --border: #343941;
   --api-text: #A9A3F0;
   --mcp-text: #4FC79E;
+  --amber-text: #FBBF24;
   --denied-text: #FF8A80;
   --neutral-text: #AEB7C2;
   --user-bubble: #2A2A4A;
+  --current-bg: #23263A;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* the hidden attribute wins over display rules */
 html { font-size: var(--font-size); }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -40,7 +49,8 @@ body {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
   padding: 0.5rem 1rem; border-bottom: 2px solid var(--border);
 }
-.topbar h1 { font-size: 1.1rem; margin: 0; }
+.topbar h1 { font-size: 1.25rem; margin: 0; letter-spacing: 0.02em; }
+.topbar .tagline { font-size: 0.85rem; font-weight: 500; color: var(--muted); margin-left: 0.4rem; }
 .muted { color: var(--muted); }
 .badge {
   display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.4rem;
@@ -51,7 +61,8 @@ body {
 .badge.api { background: var(--api); }
 .badge.mcp { background: var(--mcp); }
 #theme-toggle { margin-left: auto; }
-button, input[type="text"] { font: inherit; }
+button, input[type="text"], select { font: inherit; }
+select { padding: 0.2rem 0.4rem; border: 2px solid var(--border); border-radius: 0.4rem; background: var(--panel-bg); color: var(--text); }
 button {
   padding: 0.3rem 0.8rem; border: 2px solid var(--border); border-radius: 0.4rem;
   background: var(--panel-bg); color: var(--text); cursor: pointer;
@@ -59,15 +70,40 @@ button {
 button:hover { border-color: var(--api); }
 
 /* Two columns: chat 40%, panel 60%. Both scroll independently. */
-.columns { display: grid; grid-template-columns: 40% 60%; flex: 1; min-height: 0; }
+.columns { display: grid; grid-template-columns: 40% 60%; flex: 1; min-height: 0; transition: grid-template-columns 0.9s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* The shell pushed to the left: a thin rail, and the kernel takes the rest.
+   Both tracks are lengths so the push animates. */
+.columns.shell-docked { grid-template-columns: 3.4rem calc(100% - 3.4rem); }
+.chat { overflow: hidden; }
+.chat > .chat-head, .chat > .chat-log, .chat > .chat-controls { transition: opacity 0.4s ease; }
+.columns.shell-docked .chat > .chat-head, .columns.shell-docked .chat > .chat-log, .columns.shell-docked .chat > .chat-controls { opacity: 0; pointer-events: none; }
+.shell-rail { display: none; position: absolute; inset: 0; z-index: 2; flex-direction: column; align-items: center; gap: 0.8rem; padding-top: 0.6rem; border: 0; background: var(--bg); color: var(--muted); cursor: pointer; font: inherit; }
+.columns.shell-docked .shell-rail { display: flex; animation: railIn 0.5s ease-out 0.5s backwards; }
+.shell-rail .dock-label { writing-mode: vertical-rl; transform: rotate(180deg); padding: 0.7rem 0.1rem; }
+.shell-rail .rail-arrow { font-size: 1.6rem; line-height: 1; }
+.shell-rail:hover { background: var(--panel-bg); }
+.dock-btn { margin-left: auto; border: 1px solid var(--border); background: var(--bg); color: var(--muted); border-radius: 0.4rem; font: inherit; font-size: 1.1rem; line-height: 1; padding: 0.05rem 0.5rem; cursor: pointer; }
+.dock-btn:hover { border-color: var(--api); color: var(--text); }
+/* The spotlight: before the push, both labels pulse so the audience sees where the shell and the kernel live. */
+.spotlight .chat-head .dock-label, .spotlight .panel-toolbar .dock-label { animation: spot 0.8s ease-in-out 2; }
+@keyframes spot { 50% { transform: scale(1.35); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.12); } }
+@keyframes railIn { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .columns { transition: none; }
+  .columns.shell-docked .shell-rail, .spotlight .dock-label { animation: none; }
+}
 .chat, .bonnet { display: flex; flex-direction: column; min-height: 0; }
-.chat { border-right: 2px solid var(--border); }
+.bonnet { position: relative; }
+.chat { border-right: 2px solid var(--border); position: relative; }
 .chat-log { flex: 1; overflow-y: auto; padding: 1rem; }
 .msg { margin: 0 0 0.9rem; white-space: pre-wrap; line-height: 1.4; }
 .msg.you { background: var(--user-bubble); padding: 0.5rem 0.7rem; border-radius: 0.5rem; }
 .msg.note { color: var(--muted); font-style: italic; }
 .msg.error { color: var(--denied-text); font-weight: 600; }
 .msg .who { font-weight: 700; margin-right: 0.4rem; }
+/* The scoreboard: one line of real numbers under an answer, and under the turn in the panel. */
+.msg.score, .scoreboard { font-size: 0.9rem; color: var(--mcp-text); border-left: 3px solid var(--mcp); padding: 0.2rem 0.6rem; margin: 0.4rem 0 1rem; background: var(--bg); border-radius: 0 0.3rem 0.3rem 0; }
+.scoreboard { font-weight: 600; }
 .chat-controls { border-top: 2px solid var(--border); padding: 0.6rem 1rem; }
 .quick { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 #chat-form { display: flex; gap: 0.5rem; }
@@ -75,11 +111,32 @@ button:hover { border-color: var(--api); }
 
 .panel-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; padding: 0.5rem 1rem; border-bottom: 2px solid var(--border); }
 .fooled-label { font-weight: 600; }
-.panel { flex: 1; overflow-y: auto; padding: 0.8rem 1rem; background: var(--panel-bg); }
+/* scroll-padding keeps a row scrolled into view clear of the sticky strip
+   (app.js sets --strip-h from the strip's measured height) and of the
+   bottom edge, so the pending dots under the current row stay visible. */
+.panel { flex: 1; overflow-y: auto; padding: 0.8rem 1rem; background: var(--panel-bg); scroll-padding-top: calc(var(--strip-h, 0px) + 0.4rem); scroll-padding-bottom: 2.6rem; }
 .section-title { font-weight: 700; letter-spacing: 0.05em; margin: 0.4rem 0; }
-#startup-title { cursor: pointer; }
+/* Toggle bars: caret + switch show the state at a glance. The LOG bar hides
+   everything under the strip; the STARTUP bar folds just the startup lines. */
+.toggle-bar { cursor: pointer; display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 0.4rem; background: var(--bg); color: inherit; font: inherit; font-weight: 700; letter-spacing: 0.05em; text-align: left; }
+.toggle-bar:hover { border-color: var(--mcp); }
+.toggle-bar .caret { display: inline-block; transition: transform 0.2s ease; }
+.toggle-bar[aria-expanded="false"] .caret { transform: rotate(-90deg); }
+.toggle-bar .toggle-switch { margin-left: auto; width: 2.2rem; height: 1.15rem; border-radius: 1rem; background: var(--mcp); position: relative; transition: background 0.2s ease; }
+.toggle-bar .toggle-switch .knob { position: absolute; top: 0.12rem; left: 1.15rem; width: 0.9rem; height: 0.9rem; border-radius: 50%; background: #fff; transition: left 0.2s ease; }
+.toggle-bar[aria-expanded="false"] .toggle-switch { background: var(--neutral); }
+.toggle-bar[aria-expanded="false"] .toggle-switch .knob { left: 0.15rem; }
+.toggle-bar .toggle-word { font-weight: 500; letter-spacing: 0; color: var(--muted); min-width: 3.6rem; }
+/* The view bar sits between the flow strip and the log. Hide one half and
+   the other takes the whole kernel. */
+.view-bar { display: flex; gap: 0.6rem; margin: 0 0 0.5rem; }
+.view-bar .toggle-bar { flex: 1; padding: 0.15rem 0.6rem; font-size: 0.85rem; color: var(--muted); border-style: dashed; }
+.panel.log-hidden #log { display: none; }
+.panel.log-hidden { display: flex; flex-direction: column; }
+.panel.log-hidden .strip { position: static; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.panel.log-hidden #strip-svg { flex: 1; min-height: 0; display: flex; }
+.panel.log-hidden .flow-svg { flex: 1; min-height: 0; height: auto; }
 .startup.collapsed #startup-lines { display: none; }
-.startup.collapsed #startup-title::after { content: "  (click to expand)"; font-weight: 400; color: var(--muted); }
 
 /* Rows: a left border in the family colour, a label badge, then the text. */
 .row { border-left: 6px solid var(--border); margin: 0.35rem 0; padding: 0.25rem 0.6rem; background: var(--bg); border-radius: 0 0.3rem 0.3rem 0; }
@@ -92,6 +149,12 @@ button:hover { border-color: var(--api); }
 .row.denied .label, .row.denied .head { color: var(--denied-text); }
 .row.neutral .label { color: var(--neutral-text); }
 .row .label { font-weight: 700; margin-right: 0.5rem; }
+/* Reveal states: hidden until its beat, accented while narrated, dimmed after. */
+.row.current, .banner.current { border-left-width: 12px; background: var(--current-bg); }
+.banner.current { border-left-color: var(--denied); }
+.row.seen, .banner.seen { opacity: 0.72; }
+.row.seen:hover, .banner.seen:hover { opacity: 1; }
+.unrevealed { display: none; }
 .row summary { cursor: pointer; line-height: 1.4; }
 .row summary::marker { color: var(--muted); }
 .row .head { display: inline; }
@@ -121,6 +184,296 @@ pre.json, pre.text {
 /* Narrow or very zoomed: stack the columns instead of breaking them. */
 @media (max-width: 1000px) {
   body { overflow: auto; height: auto; }
-  .columns { grid-template-columns: 1fr; }
+  .columns, .columns.shell-docked { grid-template-columns: 1fr; }
+  .shell-rail { display: none !important; }
   .chat { border-right: 0; border-bottom: 2px solid var(--border); max-height: 50vh; }
+}
+
+/* ---- motion: every row slides in; the newest one glows for a moment ---- */
+@keyframes rowIn { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+@keyframes glowApi { from { box-shadow: 0 0 0 5px var(--api-glow); } to { box-shadow: 0 0 0 0 transparent; } }
+@keyframes glowMcp { from { box-shadow: 0 0 0 5px var(--mcp-glow); } to { box-shadow: 0 0 0 0 transparent; } }
+@keyframes glowDenied { from { box-shadow: 0 0 0 5px var(--denied-glow); } to { box-shadow: 0 0 0 0 transparent; } }
+@keyframes glowNeutral { from { box-shadow: 0 0 0 5px var(--neutral-glow); } to { box-shadow: 0 0 0 0 transparent; } }
+@keyframes flowArrow { from { transform: translateX(0); opacity: 0.6; } to { transform: translateX(8px); opacity: 1; } }
+@keyframes dots { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+@keyframes bannerIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+.row, .turn-title { animation: rowIn 0.4s ease-out; }
+.banner { animation: bannerIn 0.5s ease-out; }
+.row.fresh.api { animation: rowIn 0.4s ease-out, glowApi 1.6s ease-out; }
+.row.fresh.mcp { animation: rowIn 0.4s ease-out, glowMcp 1.6s ease-out; }
+.row.fresh.denied { animation: rowIn 0.4s ease-out, glowDenied 1.6s ease-out; }
+.row.fresh.neutral { animation: rowIn 0.4s ease-out, glowNeutral 1.6s ease-out; }
+.flow { display: inline-block; font-weight: 700; margin: 0 0.3rem; }
+.row.fresh .flow { animation: flowArrow 0.5s ease-in-out infinite alternate; }
+
+/* "More coming": three pulsing dots at the end of the turn while the queue drains. */
+.pending { color: var(--muted); font-size: 1.4rem; letter-spacing: 0.2rem; padding: 0 0.6rem; }
+.pending span { animation: dots 1.2s infinite; }
+.pending span:nth-child(2) { animation-delay: 0.2s; }
+.pending span:nth-child(3) { animation-delay: 0.4s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .row, .turn-title, .banner, .row.fresh, .row.fresh .flow, .pending span { animation: none; }
+}
+
+/* ---- flow strip: pinned at the top of the panel, rows scroll under it ---- */
+.strip {
+  position: sticky; top: -0.8rem; z-index: 5; background: var(--panel-bg);
+  margin: -0.8rem -1rem 0.6rem; padding: 0.5rem 1rem 0.4rem; border-bottom: 2px solid var(--border);
+}
+.strip.hidden, .panel.log-hidden .strip.hidden { display: none; }
+.flow-svg { width: 100%; height: min(30vh, 32vw); display: block; }
+/* Short windows (720p projectors): give the strip more of the height. */
+@media (max-height: 799px) { .flow-svg { height: min(36vh, 32vw); } }
+.caption { font-size: 1.3rem; font-weight: 600; line-height: 1.3; min-height: 1.6em; margin-top: 0.25rem; }
+.step-hint { font-size: 0.9rem; color: var(--muted); background: var(--bg); border: 1px dashed var(--border); padding: 0.15rem 0.6rem; border-radius: 0.3rem; }
+
+.flow-svg text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: var(--text); }
+/* Sizes are viewBox units. The strip is height-limited, so at 1920x965 the
+   scale is about 0.85: 22 -> 18.7 px, 19 -> 16.2 px, 17 -> 14.5 px. */
+.flow-svg .label { font-size: 22px; font-weight: 700; }
+.flow-svg .sub { font-size: 17px; fill: var(--muted); }
+.flow-svg .status { font-size: 17px; font-weight: 700; }
+.flow-svg .tools { font-size: 19px; fill: var(--muted); }
+.flow-svg .tools .blocked { text-decoration: line-through; fill: var(--denied-text); font-weight: 700; }
+.flow-svg .tools .blocked-note { font-size: 17px; fill: var(--denied-text); font-weight: 700; }
+.flow-svg .container { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 9 6; }
+.flow-svg .container-label { font-size: 17px; font-weight: 700; fill: var(--muted); text-anchor: start; }
+.flow-svg .band { fill: var(--mcp); fill-opacity: 0.09; stroke: var(--mcp); stroke-width: 1.5; stroke-dasharray: 6 6; }
+.flow-svg .band-label { font-size: 17px; font-weight: 700; fill: var(--mcp-text); }
+
+/* nodes: the family colour is the box stroke; the status word says what the colour means */
+.flow-svg .node .box { fill: var(--bg); stroke-width: 2.5; }
+.flow-svg .node.api .box { stroke: var(--api); }
+.flow-svg .node.mcp .box { stroke: var(--mcp); }
+.flow-svg .node.neutral .box { stroke: var(--neutral); }
+.flow-svg .node.api .status { fill: var(--api-text); }
+.flow-svg .node.mcp .status { fill: var(--mcp-text); }
+.flow-svg .node.neutral .status { fill: var(--neutral-text); }
+.flow-svg .node.idle { opacity: 0.5; }
+.flow-svg .node.done { opacity: 0.85; }
+.flow-svg .node.active .box, .flow-svg .node.waiting .box { stroke-width: 6; }
+.flow-svg .node.denied .box, .flow-svg .node.error .box { stroke: var(--denied); stroke-width: 6; }
+.flow-svg .node.denied .status, .flow-svg .node.error .status { fill: var(--denied-text); }
+.flow-svg .node.replaced .box { stroke: var(--amber); stroke-width: 6; }
+.flow-svg .node.replaced .status { fill: var(--amber-text); }
+
+/* edges: thin when idle, thick with moving dashes when a message is travelling */
+.flow-svg .edge .line { fill: none; stroke-width: 2.5; }
+.flow-svg .edge.api .line { stroke: var(--api); }   .flow-svg .edge.api .head { fill: var(--api); }
+.flow-svg .edge.mcp .line { stroke: var(--mcp); }   .flow-svg .edge.mcp .head { fill: var(--mcp); }
+.flow-svg .edge.neutral .line { stroke: var(--neutral); } .flow-svg .edge.neutral .head { fill: var(--neutral); }
+.flow-svg .edge.idle { opacity: 0.4; }
+.flow-svg .edge.done { opacity: 0.8; }
+.flow-svg .edge.fwd .line, .flow-svg .edge.back .line { stroke-width: 5.5; stroke-dasharray: 12 8; animation: flowDash 0.6s linear infinite; }
+.flow-svg .edge.back .line { animation-direction: reverse; }
+@keyframes flowDash { to { stroke-dashoffset: -20; } }
+
+/* The focus stage: one connection, large. Same box size as the overview, so
+   the strip never changes height when the view switches. */
+.flow-svg.off { display: none; }
+.focus-svg .label { font-size: 32px; }
+.focus-svg .sub { font-size: 21px; }
+.focus-svg .status { font-size: 21px; }
+.focus-svg .title { font-size: 24px; font-weight: 700; fill: var(--muted); letter-spacing: 0.02em; }
+.focus-svg .band { fill-opacity: 0.14; }
+.focus-svg .edge .line { stroke-width: 4; }
+.focus-svg .edge.fwd .line, .focus-svg .edge.back .line { stroke-width: 8; stroke-dasharray: 16 10; animation-duration: 1.6s; }
+.focus-svg.enter { animation: bannerIn 1.2s ease-out; }
+/* The packet: hidden until a beat sends it; then it travels the line in 2.2 s and stays at the far end. */
+.focus-svg .packet { opacity: 0; }
+.focus-svg .packet .chip { fill: var(--panel-bg); stroke: var(--mcp); stroke-width: 3; }
+.focus-svg .packet .chip-text { font-size: 19px; font-weight: 700; fill: var(--mcp-text); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.focus-svg .packet.go-right { animation: packetRight 2.2s ease-in-out forwards; }
+.focus-svg .packet.go-left { animation: packetLeft 2.2s ease-in-out forwards; }
+@keyframes packetRight { from { opacity: 0; transform: translateX(0); } 12% { opacity: 1; } to { opacity: 1; transform: translateX(240px); } }
+@keyframes packetLeft { from { opacity: 0; transform: translateX(240px); } 12% { opacity: 1; } to { opacity: 1; transform: translateX(0); } }
+/* Two screens per beat: the pipe diagram (.stage) first; with the `wire`
+   class the diagram fades away and the terminal takes the stage. */
+.focus-svg .stage { transition: opacity 0.6s ease; }
+.focus-svg.wire .stage { opacity: 0; pointer-events: none; }
+/* The process chips: Boot, Handshake, Discovery, Menu across the top of the strip. */
+.process-strip { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
+.process-strip .chip { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.15rem 0.7rem 0.15rem 0.3rem; border-radius: 1rem; border: 1px solid var(--border); font-weight: 700; letter-spacing: 0.04em; color: var(--muted); transition: background 0.4s, color 0.4s, border-color 0.4s; }
+.process-strip .chip-n { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--border); color: var(--text); font-size: 0.85rem; }
+.process-strip .chip.current { color: #fff; background: var(--mcp); border-color: var(--mcp); }
+.process-strip .chip.current .chip-n { background: #fff; color: var(--mcp); }
+.process-strip .chip.done { color: var(--mcp-text); border-color: var(--mcp); }
+.process-strip .chip.done .chip-n { background: var(--mcp); color: #fff; }
+.process-strip .chip.done .chip-n::before { content: "✓"; }
+.process-strip .chip.done .chip-n { font-size: 0; }
+.process-strip .chip.done .chip-n::before { font-size: 0.85rem; }
+/* The watermark: the current process, huge and faint, bottom-right of the kernel. */
+.process-mark { position: absolute; right: 1.2rem; bottom: 2.6rem; z-index: 7; pointer-events: none; font-size: 6rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); opacity: 0.06; transition: opacity 0.6s; }
+/* The title card that opens a process: covers the kernel, then lifts. */
+.process-card { position: absolute; inset: 0; z-index: 8; display: grid; align-content: center; justify-items: center; gap: 0.6rem; background: var(--panel-bg); text-align: center; padding: 0 2rem; }
+.process-card.enter { animation: cardIn 0.5s ease-out; }
+.process-card.leaving { animation: cardOut 0.5s ease-in forwards; }
+.process-card .card-kicker { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; color: var(--mcp-text); opacity: 0; animation: lineIn 0.5s ease-out 0.15s forwards; }
+.process-card .card-name { font-size: 7rem; font-weight: 800; line-height: 1; letter-spacing: 0.03em; opacity: 0;
+  background: linear-gradient(100deg, var(--mcp) 0%, #7EE2C0 40%, var(--text) 70%, var(--mcp) 100%); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: brandIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards, shine 2.2s ease-in-out 0.9s infinite alternate; }
+.process-card .card-blurb { font-size: 1.5rem; color: var(--muted); opacity: 0; animation: lineIn 0.5s ease-out 0.9s forwards; }
+@keyframes cardIn { from { opacity: 0; } }
+@keyframes cardOut { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .process-card.enter, .process-card.leaving, .process-card .card-kicker, .process-card .card-name, .process-card .card-blurb { animation: none; opacity: 1; }
+}
+/* The wire screen: screen two covers the whole kernel panel, under the
+   toolbar (app sets its top). Title, a full-height terminal, the caption. */
+.wire-screen { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--panel-bg); display: flex; flex-direction: column; gap: 0.7rem; padding: 0.9rem 1.2rem 1rem; }
+.wire-screen.enter { animation: termIn 0.7s ease-out; }
+.wire-title { font-size: 1.5rem; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; }
+.wire-caption { font-size: 1.3rem; font-weight: 600; line-height: 1.3; min-height: 1.6em; }
+@keyframes termIn { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* The wire terminal: a dark log screen; lines are typed in one at a time,
+   the newest carrying a blinking cursor. */
+.term { box-sizing: border-box; flex: 1; min-height: 0; background: #0B0D12; border: 2px solid #2A2F3A; border-radius: 12px; padding: 14px 20px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 19px; line-height: 29px; color: #C9D1D9; }
+.term-body { height: 100%; overflow: hidden; }
+.term .tl { white-space: pre; animation: termLine 0.25s ease-out; }
+.term .tl.info { color: #8B949E; }
+.term .tl.head { color: #E6EDF3; font-weight: 700; margin-top: 4px; }
+.term .tl.head .dir { font-weight: 900; }
+.term .tl.head .dir.out { color: #7F77DD; }
+.term .tl.head .dir.in { color: #3DD68C; }
+.term .tl.head .method { color: #F2CC60; }
+.term .dim { color: #6E7681; font-weight: 400; }
+.term .ok { color: #3DD68C; font-weight: 700; }
+.term .key { color: #79C0FF; }
+.term .str { color: #A5D6FF; }
+.term .num { color: #F2CC60; }
+.term .lit { color: #FF7B72; }
+.term .punc { color: #6E7681; }
+.term .tl.typing::after { content: "▋"; color: #3DD68C; margin-left: 2px; animation: cursorBlink 0.9s steps(1) infinite; }
+@keyframes termLine { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes cursorBlink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .focus-svg.enter, .term .tl, .term .tl.typing::after, .wire-screen.enter { animation: none; }
+  .focus-svg .stage { transition: none; }
+  .focus-svg .packet.go-right { animation: none; opacity: 1; transform: translateX(240px); }
+  .focus-svg .packet.go-left { animation: none; opacity: 1; transform: translateX(0); }
+}
+
+/* Building the picture: parts not yet built are invisible; a part that has
+   just been built plays its entrance once (nodes pop, the host box and the
+   MCP band grow, edges fade in). */
+.flow-svg .node.unbuilt, .flow-svg .edge.unbuilt, .flow-svg .group.unbuilt { opacity: 0; }
+.flow-svg .node, .flow-svg .group { transform-box: fill-box; transform-origin: center; }
+.flow-svg .node.building { animation: buildPop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) 0.15s backwards; }
+.flow-svg .container-g.building { animation: buildGrowX 0.5s ease-out; }
+.flow-svg .band-g.building { animation: buildGrowY 0.5s ease-out; }
+.flow-svg .edge.building { animation: buildFade 0.5s ease-out 0.2s backwards; }
+@keyframes buildPop { from { opacity: 0; transform: scale(0.4); } to { transform: none; } }
+@keyframes buildGrowX { from { opacity: 0; transform: scaleX(0.1); } to { transform: none; } }
+@keyframes buildGrowY { from { opacity: 0; transform: scaleY(0.1); } to { transform: none; } }
+@keyframes buildFade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .flow-svg .node.building, .flow-svg .container-g.building, .flow-svg .band-g.building, .flow-svg .edge.building { animation: none; }
+  .flow-svg .edge.fwd .line, .flow-svg .edge.back .line { animation: none; stroke-dasharray: none; stroke-width: 6.5; }
+}
+
+/* ---- column labels ---- */
+.chat-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 1rem; border-bottom: 2px solid var(--border); }
+.dock-label { display: inline-block; padding: 0.1rem 0.7rem; border-radius: 0.4rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; font-size: 0.85rem; color: #fff; }
+.dock-label.shell { background: var(--api); }
+.dock-label.kernel { background: var(--mcp); }
+.dock-sub { color: var(--muted); font-size: 0.9rem; }
+
+/* ---- the opening: welcome on a dark veil, then both halves boot behind their own ring timer ---- */
+.curtain { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-columns: 40% 60%; align-items: center;
+  background: #0F1115; color: #ECEFF3; cursor: pointer; transition: opacity 0.4s ease, background 0.6s ease; }
+.curtain.leaving { opacity: 0; }
+.curtain.boot { background: var(--bg); color: var(--text); }
+/* Welcome: the brand in a purple-to-teal gradient with a light sweeping across it */
+.curtain .welcome { grid-column: 1 / -1; grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.5s ease, transform 0.5s ease; }
+.curtain.boot .welcome { opacity: 0; transform: scale(1.08); pointer-events: none; }
+.curtain .hello { font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: #AEB7C2; margin: 0 0 0.4rem; opacity: 0;
+  animation: lineIn 0.7s ease-out 0.2s forwards; }
+.curtain .brand { font-size: 8rem; font-weight: 800; letter-spacing: 0.04em; line-height: 1; opacity: 0;
+  background: linear-gradient(100deg, #A9A3F0 0%, #7F77DD 35%, #4FC79E 65%, #1D9E75 100%); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: brandIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards, shine 2.2s ease-in-out 1.2s infinite alternate; }
+.curtain .welcome .tag { font-size: 1.4rem; color: #AEB7C2; margin: 1rem 0 0; opacity: 0; animation: lineIn 0.7s ease-out 1.5s forwards; }
+.curtain .rule { width: 0; height: 3px; margin-top: 1.2rem; background: linear-gradient(90deg, #7F77DD, #1D9E75); border-radius: 2px;
+  animation: ruleGrow 1s ease-out 1.1s forwards; }
+@keyframes brandIn { from { opacity: 0; transform: translateY(24px) scale(0.92); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes shine { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@keyframes ruleGrow { to { width: 14rem; } }
+@keyframes lineIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* Boot cards: one per column, hidden until the welcome is over */
+.curtain .boot-card { grid-row: 1; text-align: center; padding: 1rem; opacity: 0; pointer-events: none; }
+.curtain .boot-card.shell { grid-column: 1; border-right: 2px solid var(--border); align-self: stretch; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.curtain .boot-card.kernel { grid-column: 2; }
+.curtain.boot .boot-card { opacity: 1; animation: bannerIn 0.5s ease-out; }
+.curtain .boot-card .dock-label { font-size: 1.3rem; padding: 0.2rem 1rem; }
+.curtain .boot-card .tag { font-size: 1.3rem; color: var(--muted); margin: 0.8rem 0 0; }
+.curtain .lines { list-style: none; margin: 0.8rem 0 0; padding: 0; font-size: 1.7rem; font-weight: 700; line-height: 1.5; }
+.curtain .lines li { opacity: 0; animation: lineIn 0.5s ease-out forwards; }
+.curtain .lines li:nth-child(1) { animation-delay: 0.3s; }
+.curtain .lines li:nth-child(2) { animation-delay: 0.9s; }
+.curtain .lines li:nth-child(3) { animation-delay: 1.5s; }
+.curtain .lines li::before { content: "●"; margin-right: 0.6rem; font-size: 1rem; vertical-align: 0.25rem; }
+.curtain .lines li.api { color: var(--api-text); }
+.curtain .lines li.neutral { color: var(--text); }
+.curtain .lines li.neutral::before { color: var(--neutral); }
+.curtain .lines li.mcp { color: var(--mcp-text); }
+/* the ring timer: the arc sweeps once per second, the number pops */
+.curtain .timer { position: relative; width: 11rem; height: 11rem; margin: 1rem auto 0; }
+.curtain .ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.curtain .ring .track { fill: none; stroke: var(--border); stroke-width: 8; }
+.curtain .ring .arc { fill: none; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 327; stroke-dashoffset: 327; }
+.curtain .boot-card.shell .arc { stroke: var(--api); }
+.curtain .boot-card.kernel .arc { stroke: var(--mcp); }
+.curtain .count { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4.5rem; font-weight: 800; line-height: 1; }
+.curtain .boot-card.shell .count { color: var(--api-text); }
+.curtain .boot-card.kernel .count { color: var(--mcp-text); }
+.curtain .count.pop { animation: pop 0.5s ease-out; }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.curtain .booting { margin: 0.6rem 0 0; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.9rem; }
+.curtain .booting::after { content: "…"; animation: dots 1.2s infinite; }
+/* pause and hint */
+.curtain-paused, .curtain-hint { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; }
+.curtain-paused { display: none; bottom: 4.2rem; padding: 0.2rem 0.9rem; border-radius: 0.4rem; background: var(--amber); color: #fff;
+  font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.curtain.paused .curtain-paused { display: block; }
+.curtain.paused * { animation-play-state: paused; }
+.curtain-hint { bottom: 2rem; color: #AEB7C2; font-size: 0.95rem; }
+.curtain.boot .curtain-hint { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .curtain .hello, .curtain .brand, .curtain .welcome .tag, .curtain .lines li { opacity: 1; animation: none; }
+  .curtain .count.pop, .curtain.boot .boot-card, .curtain .booting::after { animation: none; }
+}
+
+/* ---- presenter notes: a small box, bottom-left, over everything ---- */
+.notes { position: fixed; left: 1rem; bottom: 1rem; z-index: 40; width: min(420px, 90vw); background: rgba(15, 17, 21, 0.92); color: #ECEFF3; border: 1px solid #3A3F4B; border-left: 5px solid var(--amber); border-radius: 0.6rem; padding: 0.6rem 0.9rem; font-size: 0.95rem; line-height: 1.4; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+.notes-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.3rem; }
+.notes-title { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); }
+.notes-key { font-size: 0.8rem; color: #AEB7C2; }
+.notes-lines { margin: 0; padding-left: 1.1rem; }
+.notes-lines li { margin: 0.2rem 0; }
+.notes:empty, .notes.quiet { opacity: 0.5; }
+
+/* ---- the closing card: Kwaheri, mirroring the welcome ---- */
+.closing { position: fixed; inset: 0; z-index: 35; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0F1115; color: #ECEFF3; cursor: pointer; animation: cardIn 0.6s ease-out; }
+.closing.leaving { animation: cardOut 0.5s ease-in forwards; }
+.closing .hello { font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: #AEB7C2; margin: 0 0 0.4rem; opacity: 0; animation: lineIn 0.6s ease-out 0.2s forwards; }
+.closing .brand { font-size: 8rem; font-weight: 800; letter-spacing: 0.04em; line-height: 1; margin: 0; opacity: 0;
+  background: linear-gradient(100deg, var(--api) 0%, #B9B3FF 35%, #7EE2C0 65%, var(--mcp) 100%); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: brandIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s forwards, shine 2.2s ease-in-out 1.1s infinite alternate; }
+.closing .tag { font-size: 1.4rem; color: #AEB7C2; margin: 1rem 0 1.2rem; opacity: 0; animation: lineIn 0.7s ease-out 1.3s forwards; }
+.closing-processes { list-style: none; display: flex; gap: 1rem; margin: 0 0 1.2rem; padding: 0; }
+.closing-processes li { padding: 0.3rem 1rem; border-radius: 1rem; border: 1px solid var(--mcp); color: #7EE2C0; font-weight: 700; letter-spacing: 0.04em; opacity: 0; animation: lineIn 0.5s ease-out forwards; }
+.closing-processes li:nth-child(1) { animation-delay: 1.7s; } .closing-processes li:nth-child(2) { animation-delay: 1.9s; }
+.closing-processes li:nth-child(3) { animation-delay: 2.1s; } .closing-processes li:nth-child(4) { animation-delay: 2.3s; }
+.closing-processes li::before { content: "✓ "; }
+.closing-stats { font-size: 1.3rem; color: #ECEFF3; margin: 0; opacity: 0; animation: lineIn 0.6s ease-out 2.6s forwards; }
+.closing-hint { position: absolute; bottom: 2rem; color: #6E7681; font-size: 0.95rem; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .closing, .closing.leaving, .closing .hello, .closing .brand, .closing .tag, .closing-processes li, .closing-stats { animation: none; opacity: 1; }
 }

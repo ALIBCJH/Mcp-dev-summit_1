@@ -3,20 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kenya travel assistant</title>
+<title>Safiri · Kenya travel assistant</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header class="topbar">
-  <h1>Kenya travel assistant</h1>
+  <h1>Safiri <span class="tagline">Kenya travel assistant</span></h1>
   <span id="model-line" class="muted">connecting…</span>
   <span id="fooled-state" class="badge neutral">fooled LLM: off</span>
+  <span id="pace-state" class="badge api">pace: Narrate</span>
+  <span id="auto-state" class="badge mcp" hidden>autopilot</span>
   <span id="conn-state" class="muted">●</span>
   <button id="theme-toggle" type="button" title="Switch light/dark">Dark</button>
 </header>
 
+<div id="curtain" class="curtain" hidden>
+  <div class="welcome">
+    <p class="hello">Welcome to</p>
+    <div class="brand">Safiri</div>
+    <div class="rule"></div>
+    <p class="tag">your travel twin</p>
+  </div>
+  <div class="boot-card shell">
+    <span class="dock-label shell">Shell</span>
+    <p class="tag">what's your request</p>
+    <div class="timer">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="track" cx="60" cy="60" r="52"></circle>
+          <circle class="arc" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="count"></div>
+    </div>
+    <p class="booting">booting</p>
+  </div>
+  <div class="boot-card kernel">
+    <span class="dock-label kernel">Kernel</span>
+    <ul class="lines">
+      <li class="api">Claude asks</li>
+      <li class="neutral">the host checks</li>
+      <li class="mcp">the servers answer</li>
+    </ul>
+    <div class="timer">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="track" cx="60" cy="60" r="52"></circle>
+          <circle class="arc" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="count"></div>
+    </div>
+    <p class="booting">booting</p>
+  </div>
+  <p class="curtain-paused">paused</p>
+  <p class="curtain-hint">Space or click pauses · Enter skips</p>
+</div>
+
 <main class="columns">
-  <section class="chat" aria-label="Chat">
+  <section class="chat" aria-label="Shell: the chat">
+    <!-- The rail: what is left of the shell once it is pushed to the left. Click to bring it back. -->
+    <button type="button" id="shell-rail" class="shell-rail" title="Open the shell"><span class="dock-label shell">Shell</span><span class="rail-arrow" aria-hidden="true">›</span></button>
+    <div class="chat-head"><span class="dock-label shell">Shell</span><span class="dock-sub">what's your request</span>
+      <button type="button" id="dock-shell-btn" class="dock-btn" title="Push the shell to the left">‹</button></div>
     <div id="chat-log" class="chat-log"></div>
     <div class="chat-controls">
       <div class="quick">
@@ -25,30 +70,100 @@
         <button type="button" data-send="/plan-trip Diani Beach 2">/plan-trip Diani Beach 2</button>
       </div>
       <form id="chat-form">
-        <input id="chat-input" type="text" autocomplete="off" placeholder="Type a message, /plan-trip <destination> <days>, or /attach <uri>">
+        <input id="chat-input" type="text" autocomplete="off" placeholder="Message, /plan-trip <place> <days>, or /attach <uri>">
         <button id="send-btn" type="submit">Send</button>
       </form>
     </div>
   </section>
 
-  <section class="bonnet" aria-label="Bonnet panel">
+  <section class="bonnet" aria-label="Kernel: the panel">
     <div class="panel-toolbar">
+      <span class="dock-label kernel">Kernel</span>
       <button id="replay-btn" type="button">Replay startup</button>
-      <label><input id="step-mode" type="checkbox"> Step (Space / →)</label>
+      <button id="replay-turn-btn" type="button">Replay turn</button>
+      <label>Pace <select id="pace">
+        <option value="instant">Instant</option>
+        <option value="fast">Fast 0.6 s</option>
+        <option value="narrate" selected>Narrate 1.5 s</option>
+        <option value="slow">Slow 2.5 s</option>
+        <option value="manual">Manual</option>
+      </select></label>
+      <label><input id="step-mode" type="checkbox"> Step</label>
+      <label><input id="hold-answer" type="checkbox" checked> Hold answer</label>
       <button id="reset-btn" type="button">Reset</button>
-      <label class="fooled-label"><input id="fooled-toggle" type="checkbox"> Simulate fooled LLM</label>
+      <label class="fooled-label"><input id="fooled-toggle" type="checkbox"> Fooled LLM</label>
+      <button id="autopilot-btn" type="button" title="Run the whole demo hands-free (A)">Autopilot</button>
+      <button id="closing-btn" type="button" title="The closing card (K)">Kwaheri</button>
+      <span id="step-hint" class="step-hint" hidden></span>
     </div>
     <div id="panel" class="panel">
-      <section id="startup" class="startup">
-        <div class="section-title" id="startup-title">STARTUP</div>
-        <div id="startup-lines"></div>
-      </section>
-      <section id="turns"></section>
+      <div id="strip" class="strip">
+        <div id="process-strip" class="process-strip" aria-label="Startup processes"></div>
+        <div id="strip-svg"></div>
+        <div id="caption" class="caption">Waiting for startup…</div>
+      </div>
+      <div class="view-bar">
+        <button type="button" class="toggle-bar" id="flow-toggle" aria-expanded="true" aria-controls="strip">
+          <span class="caret" aria-hidden="true">▾</span>FLOW<span class="toggle-switch"><span class="knob"></span></span><span class="toggle-word">hide</span>
+        </button>
+        <button type="button" class="toggle-bar" id="log-toggle" aria-expanded="true" aria-controls="log">
+          <span class="caret" aria-hidden="true">▾</span>LOG<span class="toggle-switch"><span class="knob"></span></span><span class="toggle-word">hide</span>
+        </button>
+      </div>
+      <div id="log">
+        <section id="startup" class="startup">
+          <button type="button" class="toggle-bar section-title" id="startup-title" aria-expanded="true" aria-controls="startup-lines">
+            <span class="caret" aria-hidden="true">▾</span>STARTUP<span class="toggle-switch"><span class="knob"></span></span><span class="toggle-word">hide</span>
+          </button>
+          <div id="startup-lines"></div>
+        </section>
+        <section id="turns"></section>
+      </div>
+    </div>
+    <!-- The current process, as a watermark over the kernel. -->
+    <div id="process-mark" class="process-mark" aria-hidden="true"></div>
+    <!-- The title card that opens each process, before its animation runs. -->
+    <div id="process-card" class="process-card" hidden>
+      <div class="card-kicker"></div>
+      <div class="card-name"></div>
+      <div class="card-blurb"></div>
+    </div>
+    <!-- Screen two of a connection beat: the JSON-RPC on the wire, over the whole kernel. -->
+    <div id="wire-screen" class="wire-screen" hidden>
+      <div id="wire-title" class="wire-title"></div>
+      <div class="term"><div id="wire-term" class="term-body"></div></div>
+      <div id="wire-caption" class="wire-caption"></div>
     </div>
   </section>
 </main>
 
+<!-- Presenter notes: what to say at this beat. N shows and hides them. -->
+<div id="notes" class="notes" hidden>
+  <div class="notes-head"><span class="notes-title"></span><span class="notes-key">N hides</span></div>
+  <ul class="notes-lines"></ul>
+</div>
+
+<!-- The closing card: Kwaheri, and what the audience saw. K opens it; any key or click closes it. -->
+<div id="closing" class="closing" hidden>
+  <p class="hello">Kwaheri from</p>
+  <p class="brand">Safiri</p>
+  <p class="tag">what you saw</p>
+  <ul class="closing-processes"></ul>
+  <p class="closing-stats"></p>
+  <p class="closing-hint">any key or click closes</p>
+</div>
+
 <script src="/static/format.js"></script>
+<script src="/static/markdown.js"></script>
+<script src="/static/flow_data.js"></script>
+<script src="/static/flow_state.js"></script>
+<script src="/static/flow_strip.js"></script>
+<script src="/static/reveal.js"></script>
+<script src="/static/score.js"></script>
+<script src="/static/notes.js"></script>
+<script src="/static/autopilot.js"></script>
+<script src="/static/timeline.js"></script>
+<script src="/static/curtain.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/app.js"></script>
 </body>

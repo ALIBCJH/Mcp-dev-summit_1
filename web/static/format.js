@@ -2,7 +2,7 @@
 "use strict";
 
 const CLIP_LIMIT = 600;       // characters shown before "show more"
-const WIRE_PREVIEW = 160;     // characters of raw JSON in a wire row header
+const WIRE_PREVIEW = 70;      // characters of raw JSON in a wire row header; the detail has it all
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
