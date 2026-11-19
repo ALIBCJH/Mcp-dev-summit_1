@@ -4,15 +4,20 @@
 // everything exactly where it is. Space or a click pauses and resumes;
 // Enter or Esc skips. While it runs, keys belong to it and reach nothing
 // else (not the reveal controller).
+//
+// With hold: true the timeline does not end at totalMs. It keeps ticking
+// (so paint can keep animating) until the presenter presses Next: Space,
+// Enter, Right or PageDown, the keys a presenter remote sends. That is the
+// Linux screen, which runs for as long as the talk needs.
 "use strict";
 
 const TICK_MS = 40;
 
 const Timeline = {
-  // opts: { box, totalMs, paint(elapsedMs), onDone }
+  // opts: { box, totalMs, paint(elapsedMs), onDone, hold }
   run(opts) {
-    const { box, totalMs, paint, onDone } = opts;
-    let elapsed = 0, last = performance.now(), paused = false, done = false;
+    const { box, totalMs, paint, onDone, hold = false } = opts;
+    let elapsed = 0, last = performance.now(), paused = false, done = false, holding = false;
 
     const finish = () => {
       if (done) return;
@@ -21,7 +26,7 @@ const Timeline = {
       document.removeEventListener("keydown", onKey, true);
       box.removeEventListener("click", togglePause);
       box.classList.add("leaving");
-      setTimeout(() => { box.hidden = true; box.classList.remove("leaving", "paused"); onDone(); }, 400);
+      setTimeout(() => { box.hidden = true; box.classList.remove("leaving", "paused", "holding"); onDone(); }, 400);
     };
     const togglePause = () => {
       paused = !paused;
@@ -29,8 +34,10 @@ const Timeline = {
     };
     const onKey = (e) => {
       e.preventDefault(); e.stopPropagation();
-      if (e.key === " ") togglePause();
-      else if (e.key === "Enter" || e.key === "Escape") finish();
+      if (e.key === "Escape") finish();
+      else if (holding) { if (Timeline.NEXT_KEYS.includes(e.key)) finish(); }
+      else if (e.key === " ") togglePause();
+      else if (e.key === "Enter") finish();
     };
     document.addEventListener("keydown", onKey, true);
     box.addEventListener("click", togglePause);
@@ -42,10 +49,15 @@ const Timeline = {
       if (!paused) elapsed += now - last;
       last = now;
       paint(elapsed);
-      if (elapsed >= totalMs) finish();
+      if (elapsed >= totalMs) {
+        if (!hold) finish();
+        else if (!holding) { holding = true; box.classList.add("holding"); }
+      }
     }, TICK_MS);
     return { finish };
   },
+
+  NEXT_KEYS: [" ", "Enter", "ArrowRight", "PageDown"],
 };
 
 if (typeof module !== "undefined") module.exports = Timeline;

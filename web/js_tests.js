@@ -454,18 +454,41 @@ test("the Manual hint carries the step counter", () => {
 });
 
 // ---- the opening ------------------------------------------------------------------
-test("the opening: welcome for 3.3 s, then both halves boot behind a 3-second ring (3, 2, 1); ?intro=0 skips it", () => {
-  assert.deepStrictEqual(Curtain.CURTAIN, { welcomeMs: 3300, bootMs: 3000 });
-  assert.strictEqual(Curtain.totalMs(), 6300);
-  assert.strictEqual(Curtain.phaseAt(3299), "welcome");
-  assert.strictEqual(Curtain.phaseAt(3300), "boot");
+test("the opening: welcome for 5.5 s, then both halves boot behind a 6-second ring (3, 2, 1), then the Linux screen; ?intro=0 skips it", () => {
+  assert.deepStrictEqual(Curtain.CURTAIN, { welcomeMs: 5500, beatMs: 2000, bootMs: 6000 });
+  assert.strictEqual(Curtain.totalMs(), 11500);
+  assert.strictEqual(Curtain.phaseAt(5499), "welcome");
+  assert.strictEqual(Curtain.phaseAt(5500), "boot");
+  assert.strictEqual(Curtain.phaseAt(11499), "boot");
+  assert.strictEqual(Curtain.phaseAt(11500), "linux", "after the rings the Linux screen holds");
   assert.deepStrictEqual(Curtain.bootBeat(0), { label: "3", fraction: 0 });
-  assert.deepStrictEqual(Curtain.bootBeat(1500), { label: "2", fraction: 0.5 });
-  assert.strictEqual(Curtain.bootBeat(2999).label, "1");
-  assert.strictEqual(Curtain.bootBeat(3000), null, "past the end");
+  assert.deepStrictEqual(Curtain.bootBeat(3000), { label: "2", fraction: 0.5 });
+  assert.strictEqual(Curtain.bootBeat(5999).label, "1");
+  assert.strictEqual(Curtain.bootBeat(6000), null, "past the end");
   assert.strictEqual(Curtain.bootBeat(-1), null);
   assert.strictEqual(Curtain.wanted(""), true);
   assert.strictEqual(Curtain.wanted("?intro=0"), false);
+});
+
+test("the Linux screen: the shell types one character per charMs, the kernel log streams one line per lineMs, both loop", () => {
+  const L = Curtain.LINUX;
+  assert.deepStrictEqual(Curtain.shellFrame(0), [{ kind: "cmd", text: "", cursor: true }]);
+  assert.deepStrictEqual(Curtain.shellFrame(3 * L.charMs), [{ kind: "cmd", text: "who", cursor: true }]);
+  const afterFirst = 6 * L.charMs + L.outMs;   // "whoami" typed, pause over: the output shows
+  assert.deepStrictEqual(Curtain.shellFrame(afterFirst).map((l) => l.text), ["whoami", "traveller"]);
+  assert.deepStrictEqual(Curtain.shellFrame(afterFirst + L.outMs).map((l) => l.text), ["whoami", "traveller", ""], "the next command starts after the pause");
+  assert.strictEqual(Curtain.shellFrame(afterFirst)[0].cursor, false, "a finished command loses the cursor");
+  const scriptMs = L.shell.reduce((t, l) => t + (l.kind === "cmd" ? l.text.length * L.charMs + L.outMs : L.outMs), 0);
+  const resting = Curtain.shellFrame(scriptMs + 10);
+  assert.strictEqual(resting.length, L.shell.length + 1, "resting: every line plus an empty prompt");
+  assert.deepStrictEqual(resting[resting.length - 1], { kind: "cmd", text: "", cursor: true });
+  assert.deepStrictEqual(Curtain.shellFrame(scriptMs + L.restMs), Curtain.shellFrame(0), "then it starts over");
+
+  assert.strictEqual(Curtain.kernelFrame(0).length, 1);
+  assert.strictEqual(Curtain.kernelFrame(L.lineMs * 3).length, 4);
+  assert.strictEqual(Curtain.kernelFrame(L.kernel.length * L.lineMs + 100).length, L.kernel.length, "capped at the last line while resting");
+  assert.strictEqual(Curtain.kernelFrame(L.kernel.length * L.lineMs + L.restMs).length, 1, "then it starts over");
+  assert.ok(L.kernel.some((l) => l.tag === "perm") && L.kernel.some((l) => l.tag === "driver"), "perm and driver lines exist");
 });
 
 // ---- markdown ----------------------------------------------------------------

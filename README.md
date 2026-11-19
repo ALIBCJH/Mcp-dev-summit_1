@@ -145,13 +145,19 @@ the table only.
 The page calls its two halves the shell (the chat: what's your request) and the
 kernel (the panel: what really happens); each carries its label at the top.
 On page load an opening runs (`web/static/curtain.js`): "Welcome to Safiri"
-for 3.3 seconds, then both halves boot at once behind their own 3-second
-ring timer (3, 2, 1). The shell's card says what it is; the kernel's card
+for 5.5 seconds, then both halves boot at once behind their own 6-second
+ring timer (3, 2, 1, two seconds per number). The shell's card says what it is; the kernel's card
 says in three lines what it shows (Claude asks, the host checks, the
-servers answer). When the rings close, the chat shows and the startup
-replay launches. One presenter clock drives it (`web/static/timeline.js`):
+servers answer). When the rings close, the Linux screen takes the same two
+halves: a terminal typing on the shell side, a kernel log streaming on the
+kernel side, and one line underneath, "Just like Linux. The shell is where
+you type. The kernel does the work you never see", with the three pairs
+drivers = MCP servers, permissions = policy, scheduler = agent loop. It
+holds for as long as the talk needs; Next, Enter or Space on the remote
+continues. The typed text is one table at the top of curtain.js. Then the
+chat shows and the startup replay launches. One presenter clock drives it (`web/static/timeline.js`):
 Space or a click pauses and resumes, so the presenter can talk; Enter or
-Esc skips; `?intro=0` on the URL skips it while developing.
+Esc skips the timed part, and the Linux screen ends on Next; `?intro=0` on the URL skips it while developing.
 
 One pace drives the rows and the strip together, for live turns, "Replay
 turn" and "Replay startup" (`web/static/reveal.js`, pure, Node-tested):

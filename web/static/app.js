@@ -120,10 +120,11 @@ const App = {
     return res.ok ? data : null;
   },
 
+  // The theme is not remembered: every load is light, so the page on the
+  // projector always looks the same. Dark is a toggle for the session only.
   theme(name) {
     document.documentElement.dataset.theme = name;
     document.getElementById("theme-toggle").textContent = name === "dark" ? "Light" : "Dark";
-    try { localStorage.setItem("theme", name); } catch (e) { /* private window */ }
   },
 
   // A toggle bar's caret, switch and word follow its aria-expanded state.
@@ -230,9 +231,7 @@ const App = {
   },
 
   init() {
-    let saved = "light";
-    try { saved = localStorage.getItem("theme") || "light"; } catch (e) { /* ignore */ }
-    this.theme(saved);
+    this.theme("light");
     document.getElementById("theme-toggle").addEventListener("click", () =>
       this.theme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 

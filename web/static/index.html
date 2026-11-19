@@ -52,8 +52,25 @@
     </div>
     <p class="booting">booting</p>
   </div>
+  <div class="linux-screen">
+    <div class="pane shell">
+      <span class="dock-label shell">Shell</span>
+      <div class="term" aria-label="a shell, typing"></div>
+    </div>
+    <div class="pane kernel">
+      <span class="dock-label kernel">Kernel</span>
+      <div class="term" aria-label="a kernel log, streaming"></div>
+    </div>
+    <p class="linux-line">Just like Linux. The shell is where you type. The kernel does the work you never see.</p>
+    <ul class="linux-map">
+      <li><b>drivers</b> are the MCP servers</li>
+      <li><b>permissions</b> are the policy</li>
+      <li><b>the scheduler</b> is the agent loop</li>
+    </ul>
+  </div>
   <p class="curtain-paused">paused</p>
-  <p class="curtain-hint">Space or click pauses · Enter skips</p>
+  <p class="curtain-hint timed">Space or click pauses · Enter skips</p>
+  <p class="curtain-hint held">Next, Enter or Space continues · click pauses</p>
 </div>
 
 <main class="columns">
